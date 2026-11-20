@@ -85,6 +85,7 @@ class ArcadeHub {
     this.roomId = null;
     this.myPlayerId = null;
     this.playerName = localStorage.getItem('arcade_player_name') || 'Player';
+    this.oppPlayerName = 'Opponent';
     this.confetti = new ConfettiCannon(document.getElementById('confetti-canvas'));
     this.deferredPrompt = null;
 
@@ -93,7 +94,6 @@ class ArcadeHub {
     this.bingoCalled = new Set();
     this.bingoLines = 0;
     this.bingoIsMyTurn = false;
-    this.bingoIsSetup = true;
     this.bingoAI = null;
 
     this.tttGame = null;
@@ -157,7 +157,6 @@ class ArcadeHub {
       this.onBingoReadyClicked();
     });
 
-    // Rematch button inside Game Over modal
     document.getElementById('btn-rematch').addEventListener('click', () => {
       this.gameoverModal.classList.add('hidden');
       if (this.mode === 'ai') {
@@ -169,7 +168,6 @@ class ArcadeHub {
       }
     });
 
-    // Mode selectors
     document.getElementById('select-ai-mode').addEventListener('click', () => {
       this.modeModal.classList.add('hidden');
       this.mode = 'ai';
@@ -183,7 +181,6 @@ class ArcadeHub {
       this.onlineModal.classList.remove('hidden');
     });
 
-    // Online Room Actions
     document.getElementById('btn-create-room').addEventListener('click', () => {
       this.createOnlineRoom();
     });
@@ -205,7 +202,6 @@ class ArcadeHub {
       });
     });
 
-    // Reactions
     document.querySelectorAll('.emoji-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const emoji = btn.dataset.emoji;
@@ -213,7 +209,6 @@ class ArcadeHub {
       });
     });
 
-    // Modal close
     document.getElementById('btn-close-apk').addEventListener('click', () => {
       this.apkModal.classList.add('hidden');
     });
@@ -327,20 +322,18 @@ class ArcadeHub {
   // ================= 1. BINGO ENGINE =================
   startBingoAIMode() {
     this.bingoAI = new BingoAI('smart');
-    this.bingoIsSetup = true;
     this.bingoCalled.clear();
     this.bingoLines = 0;
-    this.bingoIsMyTurn = false;
+    this.bingoIsMyTurn = true;
 
     this.oppNameEl.textContent = 'Computer 🤖';
     this.oppLinesEl.textContent = '0 Lines';
     this.myLinesEl.textContent = '0 Lines';
 
-    this.readyBtn.disabled = false;
-    this.readyBtn.textContent = 'Ready to Play!';
-    this.randomizeBtn.disabled = false;
+    this.readyBtn.style.display = 'none'; // Auto-ready!
+    this.randomizeBtn.style.display = 'flex';
 
-    this.updateBingoTurnUI('Arrange or Randomize, then click Ready', false);
+    this.updateBingoTurnUI('🎯 YOUR TURN! Tap a number on your board', true);
     this.resetBingoLetters();
     this.generateRandomBingoBoard();
     this.renderBingoBoard();
@@ -392,33 +385,27 @@ class ArcadeHub {
   }
 
   onBingoCellClicked(num) {
-    if (this.bingoIsSetup || !this.bingoIsMyTurn || this.bingoCalled.has(num)) return;
+    if (this.bingoCalled.has(num)) return;
 
-    window.soundEngine.playStrike();
-
-    if (this.mode === 'ai') {
-      this.handleBingoAICall(num, 'player');
-    } else if (this.mode === 'online' && this.socket) {
+    if (this.mode === 'online') {
+      if (!this.bingoIsMyTurn) {
+        window.soundEngine.playDefeat();
+        this.updateBingoTurnUI(`⏳ It's ${this.oppPlayerName}'s turn! Please wait...`, false);
+        return;
+      }
+      window.soundEngine.playStrike();
       this.socket.emit('pick-number', { number: num });
+    } else if (this.mode === 'ai') {
+      if (!this.bingoIsMyTurn) return;
+      window.soundEngine.playStrike();
+      this.handleBingoAICall(num, 'player');
     }
   }
 
   onBingoReadyClicked() {
-    if (!this.bingoIsSetup) return;
-
-    this.bingoIsSetup = false;
-    this.readyBtn.disabled = true;
-    this.readyBtn.textContent = 'Ready! Locked';
-    this.randomizeBtn.disabled = true;
-    window.soundEngine.playPop();
-
-    if (this.mode === 'ai') {
-      this.bingoIsMyTurn = true;
-      this.updateBingoTurnUI('Your Turn! Pick a number', true);
-    } else if (this.mode === 'online' && this.socket) {
-      this.socket.emit('player-ready', { board: this.bingoBoard });
-      this.updateBingoTurnUI('Waiting for friend to get ready...', false);
-    }
+    // Kept for backward compatibility if ever displayed
+    this.bingoIsMyTurn = true;
+    this.updateBingoTurnUI('🎯 YOUR TURN! Pick a number', true);
   }
 
   handleBingoAICall(number, source) {
@@ -436,7 +423,6 @@ class ArcadeHub {
     this.myLinesEl.textContent = `${myLines} Lines`;
     this.oppLinesEl.textContent = `${aiLines} Lines`;
 
-    // WINNER DETECTION IN SINGLE-PLAYER
     if (myLines >= 5) {
       this.triggerGameOver('🎉 BINGO! YOU WON!', 'You completed 5 lines (B-I-N-G-O) and defeated the Computer!', true);
       return;
@@ -448,7 +434,7 @@ class ArcadeHub {
 
     if (source === 'player') {
       this.bingoIsMyTurn = false;
-      this.updateBingoTurnUI('Computer is thinking...', false);
+      this.updateBingoTurnUI('🤖 Computer is thinking...', false);
 
       setTimeout(() => {
         const aiPick = this.bingoAI.chooseNumber();
@@ -456,9 +442,9 @@ class ArcadeHub {
           window.soundEngine.playStrike();
           this.handleBingoAICall(aiPick, 'ai');
           this.bingoIsMyTurn = true;
-          this.updateBingoTurnUI('Your Turn! Pick a number', true);
+          this.updateBingoTurnUI('🎯 YOUR TURN! Pick a number', true);
         }
-      }, 750 + Math.random() * 400);
+      }, 750 + Math.random() * 350);
     }
   }
 
@@ -525,6 +511,7 @@ class ArcadeHub {
       if (gameType && gameType !== this.activeGame) {
         this.switchGame(gameType);
       }
+      this.updateBingoTurnUI(`Room ${roomId} created. Waiting for friend to join...`, false);
     });
 
     this.socket.on('room-joined', ({ roomId, gameType, players }) => {
@@ -539,20 +526,35 @@ class ArcadeHub {
 
       const opp = players.find(p => p.id !== this.myPlayerId);
       if (opp) {
+        this.oppPlayerName = opp.name;
         this.oppNameEl.textContent = opp.name;
       }
     });
 
     // -------- BINGO MULTIPLAYER EVENTS --------
-    this.socket.on('game-started', ({ currentTurnPlayerId, currentTurnPlayerName }) => {
-      this.bingoIsSetup = false;
+    this.socket.on('game-started', ({ currentTurnPlayerId, currentTurnPlayerName, players }) => {
+      this.mode = 'online';
       this.bingoCalled.clear();
       this.bingoLines = 0;
       this.resetBingoLetters();
       this.renderBingoBoard();
 
+      // Hide ready button since game is actively in progress
+      this.readyBtn.style.display = 'none';
+
+      const opp = players.find(p => p.id !== this.myPlayerId);
+      if (opp) {
+        this.oppPlayerName = opp.name;
+        this.oppNameEl.textContent = opp.name;
+      }
+
       this.bingoIsMyTurn = (currentTurnPlayerId === this.myPlayerId);
-      this.updateBingoTurnUI(this.bingoIsMyTurn ? 'Your Turn! Pick a number' : `${currentTurnPlayerName}'s Turn...`, this.bingoIsMyTurn);
+      if (this.bingoIsMyTurn) {
+        this.updateBingoTurnUI('🎯 YOUR TURN! Tap a number on your board', true);
+        window.soundEngine.playPop();
+      } else {
+        this.updateBingoTurnUI(`⏳ ${currentTurnPlayerName}'s Turn... Waiting for pick`, false);
+      }
     });
 
     this.socket.on('number-called', ({ number, callerId, callerName, nextTurnPlayerId, nextTurnPlayerName }) => {
@@ -573,7 +575,11 @@ class ArcadeHub {
       this.socket.emit('update-lines', { lines: this.bingoLines });
 
       this.bingoIsMyTurn = (nextTurnPlayerId === this.myPlayerId);
-      this.updateBingoTurnUI(this.bingoIsMyTurn ? 'Your Turn! Pick a number' : `${nextTurnPlayerName}'s Turn...`, this.bingoIsMyTurn);
+      if (this.bingoIsMyTurn) {
+        this.updateBingoTurnUI('🎯 YOUR TURN! Tap a number on your board', true);
+      } else {
+        this.updateBingoTurnUI(`⏳ ${nextTurnPlayerName}'s Turn... Waiting for pick`, false);
+      }
     });
 
     this.socket.on('lines-updated', ({ playerId, lines }) => {
@@ -602,7 +608,7 @@ class ArcadeHub {
       this.tttGame.resetGame();
       this.tttGame.isMyTurn = (turnPlayerId === this.myPlayerId);
       this.tttGame.updateStatus(
-        this.tttGame.isMyTurn ? `Your Turn (${this.tttGame.mySymbol})!` : `${turnPlayerName}'s Turn (${this.tttGame.mySymbol === 'X' ? 'O' : 'X'})...`,
+        this.tttGame.isMyTurn ? `🎯 Your Turn (${this.tttGame.mySymbol})! Tap a square` : `⏳ ${turnPlayerName}'s Turn (${this.tttGame.mySymbol === 'X' ? 'O' : 'X'})...`,
         this.tttGame.isMyTurn
       );
     });
@@ -615,7 +621,7 @@ class ArcadeHub {
 
       this.tttGame.isMyTurn = (nextTurnPlayerId === this.myPlayerId);
       this.tttGame.updateStatus(
-        this.tttGame.isMyTurn ? `Your Turn (${this.tttGame.mySymbol})!` : `${nextTurnPlayerName}'s Turn...`,
+        this.tttGame.isMyTurn ? `🎯 Your Turn (${this.tttGame.mySymbol})! Tap a square` : `⏳ ${nextTurnPlayerName}'s Turn...`,
         this.tttGame.isMyTurn
       );
     });
@@ -642,7 +648,7 @@ class ArcadeHub {
       this.ludoGame.canRoll = (turnPlayerId === this.myPlayerId);
       this.ludoGame.renderBoard();
       this.ludoGame.updateStatus(
-        this.ludoGame.canRoll ? `Your Turn (${this.ludoGame.myColor.toUpperCase()})! Roll the Dice 🎲` : `${turnPlayerName}'s Turn to Roll...`,
+        this.ludoGame.canRoll ? `🎲 Your Turn (${this.ludoGame.myColor.toUpperCase()})! Tap Dice to Roll` : `⏳ ${turnPlayerName}'s Turn to Roll...`,
         this.ludoGame.canRoll
       );
     });
@@ -696,7 +702,7 @@ class ArcadeHub {
       const isMy = this.ludoGame.canRoll;
       const bonusText = bonusTurn ? ' (BONUS ROLL!)' : '';
       this.ludoGame.updateStatus(
-        isMy ? `Your Turn (${this.ludoGame.myColor.toUpperCase()})! Roll the Dice 🎲${bonusText}` : `${nextTurnPlayerName}'s Turn...${bonusText}`,
+        isMy ? `🎲 Your Turn (${this.ludoGame.myColor.toUpperCase()})! Roll the Dice${bonusText}` : `⏳ ${nextTurnPlayerName}'s Turn...${bonusText}`,
         isMy
       );
     });
@@ -713,16 +719,11 @@ class ArcadeHub {
     // -------- COMMON MULTIPLAYER EVENTS --------
     this.socket.on('rematch-started', ({ gameType }) => {
       if (gameType === 'bingo') {
-        this.bingoIsSetup = true;
         this.bingoCalled.clear();
         this.bingoLines = 0;
         this.resetBingoLetters();
-        this.readyBtn.disabled = false;
-        this.readyBtn.textContent = 'Ready to Play!';
-        this.randomizeBtn.disabled = false;
         this.generateRandomBingoBoard();
         this.renderBingoBoard();
-        this.updateBingoTurnUI('Rematch! Arrange your board and click Ready.', false);
       } else if (gameType === 'tictactoe') {
         this.tttGame.resetGame();
       } else if (gameType === 'ludo') {
