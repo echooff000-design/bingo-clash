@@ -65,7 +65,7 @@ class TicTacToeGame {
       cell.className = 'ttt-cell';
     });
 
-    this.updateStatus(this.isMyTurn ? 'Your Turn (X)!' : 'Computer is thinking...', this.isMyTurn);
+    this.updateStatus(this.isMyTurn ? `Your Turn (${this.mySymbol})!` : 'Opponent is thinking...', this.isMyTurn);
   }
 
   handleCellClick(idx) {
@@ -128,9 +128,7 @@ class TicTacToeGame {
     cell.classList.add(symbol.toLowerCase());
   }
 
-  // Minimax Algorithm for Smart AI
   getBestMove() {
-    // 15% casual mistake rate so it's fun and beatable, 85% optimal
     if (Math.random() < 0.15) {
       const empty = this.board.map((v, i) => v === null ? i : null).filter(v => v !== null);
       if (empty.length > 0) return empty[Math.floor(Math.random() * empty.length)];
@@ -204,46 +202,39 @@ class TicTacToeGame {
 
     if (winInfo.isDraw) {
       this.scores.ties++;
-      this.scoreTieEl.textContent = this.scores.ties;
+      if (this.scoreTieEl) this.scoreTieEl.textContent = this.scores.ties;
       this.updateStatus("It's a Draw!", false);
       window.soundEngine.playDefeat();
+      this.hub.triggerGameOver("It's a Draw!", "Nobody won this round. Try again!", false);
     } else {
       const { winner, pattern } = winInfo;
-      pattern.forEach(idx => this.cells[idx].classList.add('win-line'));
+      if (pattern) {
+        pattern.forEach(idx => this.cells[idx].classList.add('win-line'));
+      }
 
       if (winner === 'X') {
         this.scores.X++;
-        this.scoreXEl.textContent = this.scores.X;
-        const won = (this.mySymbol === 'X');
-        this.updateStatus(won ? '🎉 You Won!' : 'Opponent Won!', won);
-        if (won) {
-          window.soundEngine.playVictory();
-          if (this.hub.confetti) this.hub.confetti.burst(100);
-        } else {
-          window.soundEngine.playDefeat();
-        }
+        if (this.scoreXEl) this.scoreXEl.textContent = this.scores.X;
       } else {
         this.scores.O++;
-        this.scoreOEl.textContent = this.scores.O;
-        const won = (this.mySymbol === 'O');
-        this.updateStatus(won ? '🎉 You Won!' : 'Computer (O) Won!', won);
-        if (won) {
-          window.soundEngine.playVictory();
-          if (this.hub.confetti) this.hub.confetti.burst(100);
-        } else {
-          window.soundEngine.playDefeat();
-        }
+        if (this.scoreOEl) this.scoreOEl.textContent = this.scores.O;
       }
+
+      const won = (this.mySymbol === winner);
+      this.updateStatus(won ? '🎉 VICTORY!' : 'Opponent Won!', won);
+
+      this.hub.triggerGameOver(
+        won ? '🎉 TIC TAC TOE VICTORY!' : '💔 OPPONENT WON!',
+        won ? `You won the match as ${winner}!` : `Opponent won the match as ${winner}!`,
+        won
+      );
     }
   }
 
   updateStatus(msg, isHighlight) {
+    if (!this.statusEl) return;
     this.statusEl.textContent = msg;
-    if (isHighlight) {
-      this.statusEl.className = 'turn-indicator your-turn';
-    } else {
-      this.statusEl.className = 'turn-indicator opp-turn';
-    }
+    this.statusEl.className = isHighlight ? 'turn-indicator your-turn' : 'turn-indicator opp-turn';
   }
 }
 

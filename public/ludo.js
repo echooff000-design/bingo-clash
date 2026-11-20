@@ -1,5 +1,5 @@
 /**
- * Ludo Duel - 2-Player Classic Fast Board Game
+ * Ludo Duel - 2-Player Fast Board Game
  * Single-Player vs Computer Bot & Online Real-time 1v1 Duel
  */
 class LudoGame {
@@ -14,13 +14,12 @@ class LudoGame {
     this.gameOver = false;
 
     // Tokens state: 4 tokens per player
-    // -1 = In Base, 0-51 = Main Track, 52-56 = Home Column, 57 = Finished Home
+    // -1 = In Base, 0-51 = Main Track, 52-56 = Home Runway, 57 = Finished Home
     this.tokens = {
       red: [-1, -1, -1, -1],
       green: [-1, -1, -1, -1]
     };
 
-    // Safe squares (indices in Red's perspective: 0, 8, 13, 21, 26, 34, 39, 47)
     this.safeSpots = [0, 8, 13, 21, 26, 34, 39, 47];
 
     this.initDOM();
@@ -61,7 +60,7 @@ class LudoGame {
     this.gameOver = false;
     this.canRoll = true;
     this.isRolling = false;
-    this.diceValue = null;
+    this.diceValue = 1;
     this.tokens = {
       red: [-1, -1, -1, -1],
       green: [-1, -1, -1, -1]
@@ -131,7 +130,6 @@ class LudoGame {
     const color = this.currentTurnColor;
     const myTokens = this.tokens[color];
 
-    // Find movable tokens
     const movableIndices = [];
     myTokens.forEach((pos, idx) => {
       if (pos === -1 && dice === 6) movableIndices.push(idx);
@@ -147,7 +145,6 @@ class LudoGame {
     }
 
     if (color === 'red') {
-      // If only 1 token is movable, auto-move it for smooth UX!
       if (movableIndices.length === 1) {
         this.updateStatus(`Rolled ${dice}! Auto-moving token...`, true);
         setTimeout(() => this.moveToken('red', movableIndices[0]), 300);
@@ -156,7 +153,6 @@ class LudoGame {
         this.highlightMovableTokens(movableIndices);
       }
     } else {
-      // AI move
       setTimeout(() => {
         const bestToken = this.chooseAIToken(movableIndices, dice);
         this.moveToken('green', bestToken);
@@ -165,14 +161,19 @@ class LudoGame {
   }
 
   highlightMovableTokens(indices) {
-    const tokenEls = document.querySelectorAll('.ludo-token.color-red');
+    const color = this.mode === 'online' ? this.myColor : 'red';
+    const tokenEls = document.querySelectorAll(`.ludo-token.color-${color}`);
     tokenEls.forEach(el => {
       const idx = parseInt(el.dataset.tokenIndex, 10);
       if (indices.includes(idx)) {
         el.classList.add('movable-highlight');
         el.onclick = () => {
           this.clearHighlights();
-          this.moveToken('red', idx);
+          if (this.mode === 'online' && this.hub.socket) {
+            this.hub.socket.emit('ludo-move-token', { tokenIndex: idx });
+          } else {
+            this.moveToken('red', idx);
+          }
         };
       }
     });
@@ -195,13 +196,12 @@ class LudoGame {
 
     let captured = false;
     if (pos === -1 && dice === 6) {
-      tokens[tokenIndex] = 0; // Move out to start
+      tokens[tokenIndex] = 0;
       window.soundEngine.playStrike();
     } else if (pos >= 0 && (pos + dice) <= 57) {
       tokens[tokenIndex] = pos + dice;
       window.soundEngine.playPop();
 
-      // Check capture on main track
       const newPos = tokens[tokenIndex];
       if (newPos >= 0 && newPos <= 50) {
         const isSafe = this.safeSpots.includes(newPos);
@@ -209,7 +209,7 @@ class LudoGame {
           const oppEquivalent = (newPos + 26) % 52;
           oppTokens.forEach((oppP, oIdx) => {
             if (oppP === oppEquivalent) {
-              oppTokens[oIdx] = -1; // Send back to base!
+              oppTokens[oIdx] = -1;
               captured = true;
               window.soundEngine.playVictory();
             }
@@ -220,22 +220,19 @@ class LudoGame {
 
     this.renderBoard();
 
-    // Check Victory
     const won = tokens.every(p => p === 57);
     if (won) {
       this.gameOver = true;
       const isMe = (color === this.myColor);
       this.updateStatus(isMe ? '🏆 YOU WON THE LUDO DUEL!' : 'Computer Won!', isMe);
-      if (isMe) {
-        window.soundEngine.playVictory();
-        if (this.hub.confetti) this.hub.confetti.burst(120);
-      } else {
-        window.soundEngine.playDefeat();
-      }
+      this.hub.triggerGameOver(
+        isMe ? '🏆 LUDO VICTORY!' : '💔 Computer Won!',
+        isMe ? 'You successfully escorted all 4 tokens Home!' : 'Computer escorted all tokens Home first!',
+        isMe
+      );
       return;
     }
 
-    // Bonus roll on 6 or capture!
     if (dice === 6 || captured) {
       this.canRoll = true;
       this.updateStatus(`${color === 'red' ? 'You' : 'Computer'} earned a BONUS ROLL! 🎲`, color === 'red');
@@ -266,7 +263,6 @@ class LudoGame {
     });
   }
 
-  // Smart heuristic AI decision for Ludo
   chooseAIToken(movable, dice) {
     let best = movable[0];
     let maxScore = -1;
@@ -275,7 +271,6 @@ class LudoGame {
       const pos = this.tokens.green[idx];
       let score = 0;
 
-      // 1. Prioritize capturing opponent token
       const targetPos = (pos === -1 ? 0 : pos + dice);
       if (targetPos <= 50) {
         const redEquivalent = (targetPos + 26) % 52;
@@ -284,16 +279,9 @@ class LudoGame {
         }
       }
 
-      // 2. Prioritize exiting base on 6
       if (pos === -1 && dice === 6) score += 400;
-
-      // 3. Reaching Home finish
       if (pos + dice === 57) score += 800;
-
-      // 4. Entering safe spot
       if (this.safeSpots.includes(targetPos)) score += 150;
-
-      // 5. Prefer moving tokens closer to home
       score += pos * 2;
 
       if (score > maxScore) {
@@ -306,7 +294,6 @@ class LudoGame {
   }
 
   renderBoard() {
-    // Render Base Tokens
     const redBaseEl = document.getElementById('ludo-red-base-tokens');
     const greenBaseEl = document.getElementById('ludo-green-base-tokens');
     if (redBaseEl) redBaseEl.innerHTML = '';
@@ -314,19 +301,16 @@ class LudoGame {
 
     this.tokens.red.forEach((pos, idx) => {
       if (pos === -1 && redBaseEl) {
-        const tok = this.createTokenDOM('red', idx);
-        redBaseEl.appendChild(tok);
+        redBaseEl.appendChild(this.createTokenDOM('red', idx));
       }
     });
 
     this.tokens.green.forEach((pos, idx) => {
       if (pos === -1 && greenBaseEl) {
-        const tok = this.createTokenDOM('green', idx);
-        greenBaseEl.appendChild(tok);
+        greenBaseEl.appendChild(this.createTokenDOM('green', idx));
       }
     });
 
-    // Render Track & Home tokens
     const cells = document.querySelectorAll('.ludo-tile');
     cells.forEach(c => (c.innerHTML = c.dataset.tileStar ? '⭐' : ''));
 

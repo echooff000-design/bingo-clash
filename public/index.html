@@ -56,7 +56,6 @@
 
     <!-- ================= VIEW 1: BINGO CLASH ================= -->
     <div id="view-bingo" class="game-view active-view">
-      <!-- B-I-N-G-O Letters Banner -->
       <section class="bingo-banner">
         <div class="bingo-letter" id="letter-b">B</div>
         <div class="bingo-letter" id="letter-i">I</div>
@@ -65,7 +64,6 @@
         <div class="bingo-letter" id="letter-o">O</div>
       </section>
 
-      <!-- Match Status Card -->
       <section class="status-card">
         <div class="player-badge">
           <div class="player-avatar">👤</div>
@@ -80,31 +78,25 @@
         <div class="player-badge" style="flex-direction: row-reverse; text-align: right;">
           <div class="player-avatar opponent">🤖</div>
           <div class="player-meta">
-            <h3 id="opp-name-display">Computer 🤖</h3>
+            <h3 id="opp-name-display">Opponent</h3>
             <p id="opp-lines-display">0 Lines</p>
           </div>
         </div>
       </section>
 
-      <!-- Call Badge -->
       <div class="call-badge">
         <span>Last Called:</span>
         <div class="called-number-pill" id="last-called-number">-</div>
         <span id="last-caller-name">Waiting to start</span>
       </div>
 
-      <!-- Active Turn Indicator -->
       <div class="turn-indicator opp-turn" id="turn-indicator">
         Arrange your board, then click Ready!
       </div>
 
-      <!-- 5x5 Bingo Grid -->
       <main class="grid-container">
-        <div class="bingo-grid" id="bingo-grid">
-          <!-- 25 Cells dynamically rendered -->
-        </div>
+        <div class="bingo-grid" id="bingo-grid"></div>
 
-        <!-- Board Action Controls -->
         <div class="board-actions">
           <button id="btn-randomize" class="action-btn btn-secondary">
             🎲 Shuffle Board
@@ -163,24 +155,23 @@
       </div>
 
       <div class="ludo-container">
-        <!-- Interactive Ludo Board Frame -->
         <div class="ludo-board-frame" id="ludo-board">
-          <!-- Red Base (Bottom-Left) -->
+          <!-- Red Base -->
           <div class="ludo-yard ludo-yard-red">
             <span class="ludo-yard-title" style="color: #ef4444;">RED BASE</span>
             <div class="ludo-yard-tokens" id="ludo-red-base-tokens"></div>
           </div>
 
-          <!-- Green Base (Top-Right) -->
+          <!-- Green Base -->
           <div class="ludo-yard ludo-yard-green">
             <span class="ludo-yard-title" style="color: #10b981;">GREEN BASE</span>
             <div class="ludo-yard-tokens" id="ludo-green-base-tokens"></div>
           </div>
 
-          <!-- Center Crown (Finish) -->
+          <!-- Center Crown -->
           <div class="ludo-center" id="ludo-center-crown">👑</div>
 
-          <!-- Dynamic Track Tiles (0-51) -->
+          <!-- Track Tiles (0-51) -->
           <div class="ludo-tile tile-safe" id="ludo-tile-0" data-tile-star="true" style="grid-column: 2; grid-row: 9;">⭐</div>
           <div class="ludo-tile" id="ludo-tile-1" style="grid-column: 3; grid-row: 9;"></div>
           <div class="ludo-tile" id="ludo-tile-2" style="grid-column: 4; grid-row: 9;"></div>
@@ -249,7 +240,6 @@
           <div class="ludo-tile tile-green-home" id="ludo-green-home-4" style="grid-column: 10; grid-row: 8;"></div>
         </div>
 
-        <!-- Dice Roll Bar -->
         <div class="ludo-dice-area">
           <div>
             <h4 style="font-size: 0.95rem; font-weight: 800;">Dice Action</h4>
@@ -323,16 +313,16 @@
         <input type="text" id="player-name-input" class="text-input" placeholder="Enter name (e.g. Alex)" maxlength="15" />
       </div>
 
-      <!-- Create Room Section -->
+      <!-- Create Room Button -->
       <button id="btn-create-room" class="action-btn btn-primary">
         ➕ Create New Private Room
       </button>
 
-      <!-- Active Lobby Info (hidden initially) -->
+      <!-- Active Room Code Box -->
       <div id="lobby-card" class="room-code-box hidden">
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">Room Code:</p>
         <div class="room-code-val" id="lobby-room-code">------</div>
-        <p style="font-size: 0.78rem; color: var(--text-muted); margin: 6px 0 12px;">Share this code or link with your friend to play together!</p>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin: 6px 0 12px;">Share this code or link with your friend to play!</p>
         <button id="btn-copy-link" class="action-btn btn-secondary">
           🔗 Copy Invite Link
         </button>
@@ -351,7 +341,7 @@
     </div>
   </div>
 
-  <!-- Game Over / Victory Modal -->
+  <!-- Victory / Game Over Modal -->
   <div id="modal-gameover" class="modal-overlay hidden">
     <div class="modal-card victory-card">
       <div class="victory-trophy" id="victory-trophy">🏆</div>
