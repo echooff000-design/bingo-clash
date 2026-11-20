@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Bingo Clash - Multiplayer & AI</title>
+  
+  <!-- SEO & Social Sharing -->
+  <meta name="description" content="Play classic 5x5 BINGO with your friend online or against the Computer AI offline. Installable on Android & iOS." />
+  <meta name="theme-color" content="#8b5cf6" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Bingo Clash" />
+
+  <!-- PWA Manifest & App Icons -->
+  <link rel="manifest" href="./manifest.json" />
+  <link rel="apple-touch-icon" href="./icons/icon-192.png" />
+  <link rel="icon" type="image/png" href="./icons/icon-192.png" />
+
+  <!-- Google Fonts: Outfit -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+
+  <!-- Confetti Canvas -->
+  <canvas id="confetti-canvas"></canvas>
+
+  <div class="app-container">
+    
+    <!-- Top Navigation Bar -->
+    <header class="navbar">
+      <div class="logo-area">
+        <div class="logo-icon">B</div>
+        <div class="logo-text">
+          <h1>BINGO CLASH</h1>
+          <span>Multiplayer & AI</span>
+        </div>
+      </div>
+      <div class="nav-actions">
+        <button id="btn-apk-header" class="btn-apk-install" title="Download or Install Android App">
+          📲 Get App
+        </button>
+        <button id="btn-theme-toggle" class="icon-btn" title="Switch Theme">🎨</button>
+        <button id="btn-sound-toggle" class="icon-btn" title="Toggle Sound">🔊</button>
+        <button id="btn-mode-toggle" class="icon-btn" title="Change Mode">🎮</button>
+      </div>
+    </header>
+
+    <!-- B-I-N-G-O Letters Banner -->
+    <section class="bingo-banner">
+      <div class="bingo-letter" id="letter-b">B</div>
+      <div class="bingo-letter" id="letter-i">I</div>
+      <div class="bingo-letter" id="letter-n">N</div>
+      <div class="bingo-letter" id="letter-g">G</div>
+      <div class="bingo-letter" id="letter-o">O</div>
+    </section>
+
+    <!-- Match Status Card -->
+    <section class="status-card">
+      <div class="player-badge">
+        <div class="player-avatar">👤</div>
+        <div class="player-meta">
+          <h3 id="player-name-display">You</h3>
+          <p id="my-lines-display">0 Lines</p>
+        </div>
+      </div>
+
+      <div class="vs-pill">VS</div>
+
+      <div class="player-badge" style="flex-direction: row-reverse; text-align: right;">
+        <div class="player-avatar opponent">🤖</div>
+        <div class="player-meta">
+          <h3 id="opp-name-display">Computer 🤖</h3>
+          <p id="opp-lines-display">0 Lines</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Call Badge -->
+    <div class="call-badge">
+      <span>Last Called:</span>
+      <div class="called-number-pill" id="last-called-number">-</div>
+      <span id="last-caller-name">Waiting to start</span>
+    </div>
+
+    <!-- Active Turn Indicator -->
+    <div class="turn-indicator opp-turn" id="turn-indicator">
+      Arrange your board, then click Ready!
+    </div>
+
+    <!-- 5x5 Bingo Grid -->
+    <main class="grid-container">
+      <div class="bingo-grid" id="bingo-grid">
+        <!-- 25 Cells dynamically rendered -->
+      </div>
+
+      <!-- Board Action Controls -->
+      <div class="board-actions">
+        <button id="btn-randomize" class="action-btn btn-secondary">
+          🎲 Shuffle Board
+        </button>
+        <button id="btn-ready" class="action-btn btn-primary">
+          Ready to Play!
+        </button>
+      </div>
+    </main>
+
+    <!-- Mobile Quick Reactions Bar -->
+    <div class="reactions-bar">
+      <button class="emoji-btn" data-emoji="🎉">🎉</button>
+      <button class="emoji-btn" data-emoji="😂">😂</button>
+      <button class="emoji-btn" data-emoji="🔥">🔥</button>
+      <button class="emoji-btn" data-emoji="🎯">🎯</button>
+      <button class="emoji-btn" data-emoji="😱">😱</button>
+      <button class="emoji-btn" data-emoji="🏆">🏆</button>
+    </div>
+
+  </div>
+
+  <!-- ================= MODALS ================= -->
+
+  <!-- Mode Selection Modal -->
+  <div id="modal-mode" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Choose Game Mode</h2>
+        <button id="btn-close-mode" class="close-btn">✕</button>
+      </div>
+      
+      <div class="mode-selector">
+        <div id="select-ai-mode" class="mode-card">
+          <div class="mode-icon">🤖</div>
+          <div class="mode-info">
+            <h4>Play vs Computer</h4>
+            <p>100% Offline • Smart AI Bot • Instant Play</p>
+          </div>
+        </div>
+
+        <div id="select-online-mode" class="mode-card">
+          <div class="mode-icon">👥</div>
+          <div class="mode-info">
+            <h4>Play Online with Friend</h4>
+            <p>1v1 Duel • Room Codes • Real-time Sync</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Online Lobby Modal -->
+  <div id="modal-online" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>Multiplayer Lobby</h2>
+        <button id="btn-close-online" class="close-btn">✕</button>
+      </div>
+
+      <div class="input-group">
+        <label for="player-name-input">Your Display Name</label>
+        <input type="text" id="player-name-input" class="text-input" placeholder="Enter name (e.g. Alex)" maxlength="15" />
+      </div>
+
+      <!-- Create Room Section -->
+      <button id="btn-create-room" class="action-btn btn-primary">
+        ➕ Create New Private Room
+      </button>
+
+      <!-- Active Lobby Info (hidden initially) -->
+      <div id="lobby-card" class="room-code-box hidden">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 6px;">Room Code:</p>
+        <div class="room-code-val" id="lobby-room-code">------</div>
+        <p style="font-size: 0.78rem; color: var(--text-muted); margin: 6px 0 12px;">Share this code or link with your friend to play together!</p>
+        <button id="btn-copy-link" class="action-btn btn-secondary">
+          🔗 Copy Invite Link
+        </button>
+      </div>
+
+      <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; font-weight: 700;">— OR JOIN FRIEND —</div>
+
+      <!-- Join Room Section -->
+      <div class="input-group">
+        <label for="join-code-input">Enter 5-Letter Room Code</label>
+        <div style="display: flex; gap: 8px;">
+          <input type="text" id="join-code-input" class="text-input" placeholder="e.g. BINGO" maxlength="6" style="text-transform: uppercase;" />
+          <button id="btn-join-room" class="action-btn btn-secondary" style="flex: 0 0 90px;">Join</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over / Victory Modal -->
+  <div id="modal-gameover" class="modal-overlay hidden">
+    <div class="modal-card victory-card">
+      <div class="victory-trophy" id="victory-trophy">🏆</div>
+      <h2 class="victory-title" id="victory-title">BINGO!</h2>
+      <p id="victory-msg" style="color: var(--text-muted); font-size: 0.95rem;">
+        You completed 5 lines!
+      </p>
+
+      <button id="btn-rematch" class="action-btn btn-primary" style="margin-top: 10px;">
+        🔄 Play Rematch
+      </button>
+    </div>
+  </div>
+
+  <!-- Android APK & App Install Modal -->
+  <div id="modal-apk" class="modal-overlay hidden">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2>📲 Get Android APK / App</h2>
+        <button id="btn-close-apk" class="close-btn">✕</button>
+      </div>
+
+      <p style="font-size: 0.85rem; color: var(--text-muted);">
+        You can install this game directly on your Android phone or generate a standalone <strong>.apk</strong> file in 1 minute:
+      </p>
+
+      <div class="apk-steps">
+        <div class="apk-step-item">
+          <div class="step-num">1</div>
+          <div>
+            <strong style="color: #fff;">Direct Mobile Install (PWA):</strong>
+            <p>Open this link on your Android phone in Chrome, tap the <strong>3 dots (⋮)</strong> and select <strong>"Install app"</strong> or <strong>"Add to Home screen"</strong>. It installs instantly with the app icon on your home screen!</p>
+          </div>
+        </div>
+
+        <div class="apk-step-item">
+          <div class="step-num">2</div>
+          <div>
+            <strong style="color: #fff;">1-Click Free Signed APK (PWABuilder):</strong>
+            <p>Deploy your code to Render.com (or GitHub Pages), go to <a href="https://www.pwabuilder.com" target="_blank" style="color: var(--accent-cyan); text-decoration: underline;">pwabuilder.com</a>, enter your live URL, and click <strong>"Package for Android"</strong> to download a ready-to-install <strong>.apk</strong> file!</p>
+          </div>
+        </div>
+
+        <div class="apk-step-item">
+          <div class="step-num">3</div>
+          <div>
+            <strong style="color: #fff;">Native Android Studio (Capacitor):</strong>
+            <p>Use the included Capacitor configuration to run <code>npx cap build android</code> to generate a native APK with Android Studio.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Socket.io client (loads from server or fallback) -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // Fallback if running directly as file:// or without Node backend
+    if (typeof io === 'undefined') {
+      const script = document.createElement('script');
+      script.src = 'https://cdn.socket.io/4.7.5/socket.io.min.js';
+      document.head.appendChild(script);
+    }
+  </script>
+
+  <!-- Game Logic Scripts -->
+  <script src="./audio.js"></script>
+  <script src="./ai.js"></script>
+  <script src="./game.js"></script>
+</body>
+</html>

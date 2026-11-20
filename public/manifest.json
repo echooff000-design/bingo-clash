@@ -1,0 +1,25 @@
+{
+  "name": "Bingo Clash - Multiplayer & AI",
+  "short_name": "Bingo Clash",
+  "description": "Play classic 5x5 Bingo with your friends online or challenge the Computer AI offline!",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d0f18",
+  "theme_color": "#8b5cf6",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "./icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "./icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
