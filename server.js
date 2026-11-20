@@ -25,7 +25,6 @@ app.get('*', (req, res) => {
 });
 
 // Rooms State
-// roomId -> { id, gameType, players: [{ id, name, isHost, ready, lines, color, symbol }], currentTurn, state, gameData }
 const rooms = new Map();
 
 function generateRoomCode() {
@@ -55,7 +54,7 @@ io.on('connection', (socket) => {
           id: socket.id,
           name: (playerName || 'Player 1').trim().slice(0, 16),
           isHost: true,
-          ready: false,
+          ready: true,
           lines: 0,
           color: 'red',
           symbol: 'X'
@@ -102,14 +101,14 @@ io.on('connection', (socket) => {
     }
 
     if (room.players.length >= 2) {
-      return socket.emit('error-message', { message: 'Room is full (max 2 players for 1v1 duel).' });
+      return socket.emit('error-message', { message: 'Room is already full (max 2 players for 1v1 duel).' });
     }
 
     const newPlayer = {
       id: socket.id,
       name: (playerName || 'Player 2').trim().slice(0, 16),
       isHost: false,
-      ready: false,
+      ready: true,
       lines: 0,
       color: 'green',
       symbol: 'O'
@@ -119,15 +118,28 @@ io.on('connection', (socket) => {
     currentRoomId = code;
     socket.join(code);
 
+    // Notify room of joined players
     io.to(code).emit('room-joined', {
       roomId: code,
       gameType: room.gameType,
       players: room.players,
-      state: room.state
+      state: 'playing'
     });
 
-    // Auto-start Tic Tac Toe and Ludo when 2nd player joins!
-    if (room.gameType === 'tictactoe') {
+    // ================= AUTO-START GAME FOR ALL 3 MODES! =================
+    // As soon as Player 2 joins, the game starts immediately without waiting!
+    if (room.gameType === 'bingo') {
+      room.state = 'playing';
+      room.gameData.calledNumbers = [];
+      room.currentTurn = 0; // Host (Player 1) goes first
+      room.players.forEach(p => { p.ready = true; p.lines = 0; });
+
+      io.to(code).emit('game-started', {
+        currentTurnPlayerId: room.players[0].id,
+        currentTurnPlayerName: room.players[0].name,
+        players: room.players
+      });
+    } else if (room.gameType === 'tictactoe') {
       room.state = 'playing';
       room.gameData.board = Array(9).fill(null);
       room.currentTurn = 0; // Host (X) starts
@@ -173,34 +185,6 @@ io.on('connection', (socket) => {
   });
 
   // ================= BINGO =================
-  socket.on('player-ready', ({ board }) => {
-    if (!currentRoomId || !rooms.has(currentRoomId)) return;
-    const room = rooms.get(currentRoomId);
-    if (room.gameType !== 'bingo') return;
-    const player = room.players.find(p => p.id === socket.id);
-    if (!player) return;
-
-    player.ready = true;
-    player.lines = 0;
-
-    const allReady = room.players.length === 2 && room.players.every(p => p.ready);
-    if (allReady) {
-      room.state = 'playing';
-      room.gameData.calledNumbers = [];
-      room.currentTurn = Math.floor(Math.random() * 2);
-
-      io.to(currentRoomId).emit('game-started', {
-        currentTurnPlayerId: room.players[room.currentTurn].id,
-        currentTurnPlayerName: room.players[room.currentTurn].name,
-        players: room.players
-      });
-    } else {
-      io.to(currentRoomId).emit('player-status-update', {
-        players: room.players
-      });
-    }
-  });
-
   socket.on('pick-number', ({ number }) => {
     if (!currentRoomId || !rooms.has(currentRoomId)) return;
     const room = rooms.get(currentRoomId);
@@ -236,13 +220,11 @@ io.on('connection', (socket) => {
 
     player.lines = Math.min(5, Math.max(0, parseInt(lines, 10) || 0));
 
-    // Notify opponent of updated line count
     io.to(currentRoomId).emit('lines-updated', {
       playerId: player.id,
       lines: player.lines
     });
 
-    // Check WINNER: First to hit 5 lines wins!
     if (player.lines >= 5 && room.state === 'playing') {
       room.state = 'finished';
       io.to(currentRoomId).emit('game-over', {
@@ -453,10 +435,17 @@ io.on('connection', (socket) => {
     const room = rooms.get(currentRoomId);
 
     if (room.gameType === 'bingo') {
-      room.state = 'waiting';
-      room.players.forEach(p => { p.ready = false; p.lines = 0; });
+      room.state = 'playing';
+      room.currentTurn = Math.floor(Math.random() * 2);
       room.gameData = { calledNumbers: [] };
+      room.players.forEach(p => { p.ready = true; p.lines = 0; });
+
       io.to(currentRoomId).emit('rematch-started', { gameType: 'bingo', players: room.players });
+      io.to(currentRoomId).emit('game-started', {
+        currentTurnPlayerId: room.players[room.currentTurn].id,
+        currentTurnPlayerName: room.players[room.currentTurn].name,
+        players: room.players
+      });
     } else if (room.gameType === 'tictactoe') {
       room.state = 'playing';
       room.currentTurn = 0;
@@ -514,7 +503,7 @@ io.on('connection', (socket) => {
           room.players[0].isHost = true;
           room.state = 'waiting';
           io.to(currentRoomId).emit('player-left', {
-            message: `${departing.name} left the game. Waiting for a player...`,
+            message: `${departing.name} left the game. Waiting for a player to join...`,
             players: room.players
           });
         }
