@@ -28,7 +28,7 @@ app.get('*', (req, res) => {
 });
 
 // Rooms State
-// roomId -> { id, players: [ { id, name, isHost, ready, lines, board } ], currentTurn: 0, calledNumbers: [], state: 'waiting'|'playing'|'finished' }
+// roomId -> { id, gameType: 'bingo'|'tictactoe'|'ludo', players: [ { id, name, isHost, ready, data } ], currentTurn: 0, state: 'waiting'|'playing'|'finished', gameData: {} }
 const rooms = new Map();
 
 function generateRoomCode() {
@@ -43,8 +43,8 @@ function generateRoomCode() {
 io.on('connection', (socket) => {
   let currentRoomId = null;
 
-  // Create a new multiplayer room
-  socket.on('create-room', ({ playerName }) => {
+  // ================= ROOM CREATION & JOINING =================
+  socket.on('create-room', ({ playerName, gameType = 'bingo' }) => {
     let roomId = generateRoomCode();
     while (rooms.has(roomId)) {
       roomId = generateRoomCode();
@@ -52,21 +52,37 @@ io.on('connection', (socket) => {
 
     const room = {
       id: roomId,
+      gameType,
       players: [
         {
           id: socket.id,
           name: (playerName || 'Player 1').trim().slice(0, 16),
           isHost: true,
           ready: false,
-          lines: 0,
-          board: null
+          score: 0,
+          color: 'red' // For Ludo
         }
       ],
       currentTurn: 0,
-      calledNumbers: [],
-      state: 'waiting', // waiting, ready, playing, finished
-      winner: null
+      state: 'waiting', // waiting, playing, finished
+      gameData: {}
     };
+
+    // Initialize game specific state
+    if (gameType === 'bingo') {
+      room.gameData = { calledNumbers: [], lines: {} };
+    } else if (gameType === 'tictactoe') {
+      room.gameData = { board: Array(9).fill(null), startingSymbol: 'X' };
+    } else if (gameType === 'ludo') {
+      room.gameData = {
+        diceValue: null,
+        canRoll: true,
+        tokens: {
+          red: [-1, -1, -1, -1], // -1 is base, 0-51 track, 52-56 home, 57 finish
+          green: [-1, -1, -1, -1]
+        }
+      };
+    }
 
     rooms.set(roomId, room);
     currentRoomId = roomId;
@@ -74,12 +90,12 @@ io.on('connection', (socket) => {
 
     socket.emit('room-created', {
       roomId,
+      gameType,
       player: room.players[0],
       players: room.players
     });
   });
 
-  // Join an existing room
   socket.on('join-room', ({ roomId, playerName }) => {
     const code = (roomId || '').trim().toUpperCase();
     const room = rooms.get(code);
@@ -89,7 +105,7 @@ io.on('connection', (socket) => {
     }
 
     if (room.players.length >= 2) {
-      return socket.emit('error-message', { message: 'Room is already full (max 2 players for 1v1 Bingo).' });
+      return socket.emit('error-message', { message: 'Room is already full (max 2 players for 1v1 duel).' });
     }
 
     const newPlayer = {
@@ -97,96 +113,85 @@ io.on('connection', (socket) => {
       name: (playerName || 'Player 2').trim().slice(0, 16),
       isHost: false,
       ready: false,
-      lines: 0,
-      board: null
+      score: 0,
+      color: 'green' // For Ludo
     };
 
     room.players.push(newPlayer);
     currentRoomId = code;
     socket.join(code);
 
-    // Notify room of updated player list
     io.to(code).emit('room-joined', {
       roomId: code,
+      gameType: room.gameType,
       players: room.players,
       state: room.state
     });
   });
 
-  // Player sets their board and marks Ready
+  // ================= BINGO EVENTS =================
   socket.on('player-ready', ({ board }) => {
     if (!currentRoomId || !rooms.has(currentRoomId)) return;
     const room = rooms.get(currentRoomId);
+    if (room.gameType !== 'bingo') return;
     const player = room.players.find(p => p.id === socket.id);
-
     if (!player) return;
 
-    player.board = board;
     player.ready = true;
     player.lines = 0;
 
-    // Check if both players are ready
     const allReady = room.players.length === 2 && room.players.every(p => p.ready);
-
     if (allReady) {
       room.state = 'playing';
-      room.calledNumbers = [];
-      room.winner = null;
-      room.currentTurn = Math.floor(Math.random() * 2); // Random first turn
+      room.gameData.calledNumbers = [];
+      room.currentTurn = Math.floor(Math.random() * 2);
 
       io.to(currentRoomId).emit('game-started', {
         currentTurnPlayerId: room.players[room.currentTurn].id,
         currentTurnPlayerName: room.players[room.currentTurn].name,
-        players: room.players.map(p => ({ id: p.id, name: p.name, ready: p.ready, lines: 0 }))
+        players: room.players
       });
     } else {
       io.to(currentRoomId).emit('player-status-update', {
-        players: room.players.map(p => ({ id: p.id, name: p.name, ready: p.ready, lines: p.lines }))
+        players: room.players
       });
     }
   });
 
-  // Number picked by player whose turn it is
   socket.on('pick-number', ({ number }) => {
     if (!currentRoomId || !rooms.has(currentRoomId)) return;
     const room = rooms.get(currentRoomId);
+    if (room.gameType !== 'bingo' || room.state !== 'playing') return;
 
-    if (room.state !== 'playing') return;
-
-    const currentActivePlayer = room.players[room.currentTurn];
-    if (!currentActivePlayer || currentActivePlayer.id !== socket.id) {
-      return socket.emit('error-message', { message: 'Not your turn!' });
-    }
+    const currentActive = room.players[room.currentTurn];
+    if (!currentActive || currentActive.id !== socket.id) return;
 
     const num = parseInt(number, 10);
     if (isNaN(num) || num < 1 || num > 25) return;
-    if (room.calledNumbers.includes(num)) return;
+    if (room.gameData.calledNumbers.includes(num)) return;
 
-    room.calledNumbers.push(num);
-
-    // Rotate turn
+    room.gameData.calledNumbers.push(num);
     room.currentTurn = (room.currentTurn + 1) % room.players.length;
     const nextPlayer = room.players[room.currentTurn];
 
     io.to(currentRoomId).emit('number-called', {
       number: num,
       callerId: socket.id,
-      callerName: currentActivePlayer.name,
-      calledNumbers: room.calledNumbers,
+      callerName: currentActive.name,
+      calledNumbers: room.gameData.calledNumbers,
       nextTurnPlayerId: nextPlayer.id,
       nextTurnPlayerName: nextPlayer.name
     });
   });
 
-  // Update line count & claim Bingo
   socket.on('update-lines', ({ lines }) => {
     if (!currentRoomId || !rooms.has(currentRoomId)) return;
     const room = rooms.get(currentRoomId);
+    if (room.gameType !== 'bingo') return;
     const player = room.players.find(p => p.id === socket.id);
     if (!player) return;
 
     player.lines = Math.min(5, Math.max(0, parseInt(lines, 10) || 0));
-
     io.to(currentRoomId).emit('lines-updated', {
       playerId: player.id,
       lines: player.lines
@@ -194,8 +199,6 @@ io.on('connection', (socket) => {
 
     if (player.lines >= 5 && room.state === 'playing') {
       room.state = 'finished';
-      room.winner = player;
-
       io.to(currentRoomId).emit('game-over', {
         winnerId: player.id,
         winnerName: player.name,
@@ -204,7 +207,279 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Chat message or emoji reaction
+  // ================= TIC TAC TOE EVENTS =================
+  socket.on('ttt-ready', () => {
+    if (!currentRoomId || !rooms.has(currentRoomId)) return;
+    const room = rooms.get(currentRoomId);
+    if (room.gameType !== 'tictactoe') return;
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    player.ready = true;
+    const allReady = room.players.length === 2 && room.players.every(p => p.ready);
+
+    if (allReady) {
+      room.state = 'playing';
+      room.gameData.board = Array(9).fill(null);
+      room.currentTurn = 0; // Host is X, joins as O
+
+      io.to(currentRoomId).emit('ttt-start', {
+        turnPlayerId: room.players[0].id,
+        symbolMap: {
+          [room.players[0].id]: 'X',
+          [room.players[1].id]: 'O'
+        }
+      });
+    } else {
+      io.to(currentRoomId).emit('player-status-update', { players: room.players });
+    }
+  });
+
+  socket.on('ttt-move', ({ index }) => {
+    if (!currentRoomId || !rooms.has(currentRoomId)) return;
+    const room = rooms.get(currentRoomId);
+    if (room.gameType !== 'tictactoe' || room.state !== 'playing') return;
+
+    const currentActive = room.players[room.currentTurn];
+    if (!currentActive || currentActive.id !== socket.id) return;
+
+    const idx = parseInt(index, 10);
+    if (isNaN(idx) || idx < 0 || idx > 8 || room.gameData.board[idx] !== null) return;
+
+    const symbol = room.currentTurn === 0 ? 'X' : 'O';
+    room.gameData.board[idx] = symbol;
+
+    // Check winner
+    const winPatterns = [
+      [0,1,2], [3,4,5], [6,7,8], // rows
+      [0,3,6], [1,4,7], [2,5,8], // cols
+      [0,4,8], [2,4,6]           // diags
+    ];
+
+    let winningPattern = null;
+    for (const pattern of winPatterns) {
+      const [a, b, c] = pattern;
+      if (room.gameData.board[a] && room.gameData.board[a] === room.gameData.board[b] && room.gameData.board[a] === room.gameData.board[c]) {
+        winningPattern = pattern;
+        break;
+      }
+    }
+
+    const isDraw = !winningPattern && room.gameData.board.every(c => c !== null);
+
+    if (winningPattern) {
+      room.state = 'finished';
+      io.to(currentRoomId).emit('ttt-over', {
+        board: room.gameData.board,
+        winningPattern,
+        winnerId: socket.id,
+        winnerName: currentActive.name,
+        symbol,
+        isDraw: false
+      });
+    } else if (isDraw) {
+      room.state = 'finished';
+      io.to(currentRoomId).emit('ttt-over', {
+        board: room.gameData.board,
+        winningPattern: null,
+        winnerId: null,
+        isDraw: true
+      });
+    } else {
+      room.currentTurn = (room.currentTurn + 1) % 2;
+      io.to(currentRoomId).emit('ttt-update', {
+        board: room.gameData.board,
+        nextTurnPlayerId: room.players[room.currentTurn].id,
+        lastIndex: idx,
+        symbol
+      });
+    }
+  });
+
+  // ================= LUDO EVENTS =================
+  socket.on('ludo-ready', () => {
+    if (!currentRoomId || !rooms.has(currentRoomId)) return;
+    const room = rooms.get(currentRoomId);
+    if (room.gameType !== 'ludo') return;
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) return;
+
+    player.ready = true;
+    const allReady = room.players.length === 2 && room.players.every(p => p.ready);
+
+    if (allReady) {
+      room.state = 'playing';
+      room.currentTurn = 0; // Red starts
+      room.gameData = {
+        diceValue: null,
+        canRoll: true,
+        tokens: {
+          red: [-1, -1, -1, -1],
+          green: [-1, -1, -1, -1]
+        }
+      };
+
+      io.to(currentRoomId).emit('ludo-start', {
+        turnPlayerId: room.players[0].id,
+        colorMap: {
+          [room.players[0].id]: 'red',
+          [room.players[1].id]: 'green'
+        },
+        tokens: room.gameData.tokens
+      });
+    } else {
+      io.to(currentRoomId).emit('player-status-update', { players: room.players });
+    }
+  });
+
+  socket.on('ludo-roll-dice', () => {
+    if (!currentRoomId || !rooms.has(currentRoomId)) return;
+    const room = rooms.get(currentRoomId);
+    if (room.gameType !== 'ludo' || room.state !== 'playing') return;
+
+    const currentActive = room.players[room.currentTurn];
+    if (!currentActive || currentActive.id !== socket.id) return;
+    if (!room.gameData.canRoll) return;
+
+    const dice = Math.floor(Math.random() * 6) + 1;
+    room.gameData.diceValue = dice;
+    room.gameData.canRoll = false;
+
+    const playerColor = room.currentTurn === 0 ? 'red' : 'green';
+    const playerTokens = room.gameData.tokens[playerColor];
+
+    // Check if player has any valid moves
+    const hasValidMove = playerTokens.some(pos => {
+      if (pos === -1) return dice === 6;
+      if (pos === 57) return false;
+      return (pos + dice) <= 57;
+    });
+
+    io.to(currentRoomId).emit('ludo-dice-rolled', {
+      dice,
+      rollerId: socket.id,
+      rollerName: currentActive.name,
+      color: playerColor,
+      hasValidMove
+    });
+
+    if (!hasValidMove) {
+      // Pass turn to next player after brief timeout
+      setTimeout(() => {
+        if (!rooms.has(currentRoomId)) return;
+        room.currentTurn = (room.currentTurn + 1) % 2;
+        room.gameData.canRoll = true;
+        room.gameData.diceValue = null;
+        io.to(currentRoomId).emit('ludo-turn-change', {
+          nextTurnPlayerId: room.players[room.currentTurn].id,
+          nextTurnPlayerName: room.players[room.currentTurn].name,
+          color: room.currentTurn === 0 ? 'red' : 'green'
+        });
+      }, 1200);
+    }
+  });
+
+  socket.on('ludo-move-token', ({ tokenIndex }) => {
+    if (!currentRoomId || !rooms.has(currentRoomId)) return;
+    const room = rooms.get(currentRoomId);
+    if (room.gameType !== 'ludo' || room.state !== 'playing') return;
+
+    const currentActive = room.players[room.currentTurn];
+    if (!currentActive || currentActive.id !== socket.id) return;
+    if (room.gameData.canRoll || !room.gameData.diceValue) return;
+
+    const dice = room.gameData.diceValue;
+    const color = room.currentTurn === 0 ? 'red' : 'green';
+    const oppColor = color === 'red' ? 'green' : 'red';
+    const tokens = room.gameData.tokens[color];
+    const oppTokens = room.gameData.tokens[oppColor];
+
+    const tIdx = parseInt(tokenIndex, 10);
+    if (isNaN(tIdx) || tIdx < 0 || tIdx > 3) return;
+
+    let pos = tokens[tIdx];
+    if (pos === 57) return; // Already reached home
+
+    let moved = false;
+    let captured = false;
+
+    if (pos === -1) {
+      if (dice === 6) {
+        tokens[tIdx] = 0; // Exit to starting point
+        moved = true;
+      }
+    } else if (pos + dice <= 57) {
+      tokens[tIdx] = pos + dice;
+      moved = true;
+
+      // Check capture on main track (0-51)
+      const newPos = tokens[tIdx];
+      // Convert current player's track step to opponent's track step coordinate
+      // Red starts at 0, Green starts at 26 (opposite side)
+      if (newPos >= 0 && newPos <= 50) {
+        // Safe spots: 0 (Red start), 26 (Green start), 8, 21, 34, 47 (Star tiles)
+        const safeSpotsRed = [0, 8, 21, 26, 34, 47];
+        const isSafe = safeSpotsRed.includes(newPos);
+
+        if (!isSafe) {
+          const greenEquivalent = (newPos + 26) % 52;
+          oppTokens.forEach((oppPos, idx) => {
+            if (color === 'red' && oppPos === greenEquivalent) {
+              oppTokens[idx] = -1; // Send back to base!
+              captured = true;
+            } else if (color === 'green') {
+              const redEquivalent = (newPos + 26) % 52;
+              if (oppPos === redEquivalent) {
+                oppTokens[idx] = -1; // Send back to base!
+                captured = true;
+              }
+            }
+          });
+        }
+      }
+    }
+
+    if (!moved) return;
+
+    // Check Win Condition (all 4 tokens reached 57)
+    const hasWon = tokens.every(p => p === 57);
+
+    io.to(currentRoomId).emit('ludo-token-moved', {
+      color,
+      tokenIndex: tIdx,
+      tokens: room.gameData.tokens,
+      captured,
+      hasWon
+    });
+
+    if (hasWon) {
+      room.state = 'finished';
+      io.to(currentRoomId).emit('ludo-over', {
+        winnerId: socket.id,
+        winnerName: currentActive.name,
+        color
+      });
+      return;
+    }
+
+    // If rolled 6 or captured opponent, player gets a bonus turn!
+    const bonusTurn = (dice === 6 || captured);
+    if (!bonusTurn) {
+      room.currentTurn = (room.currentTurn + 1) % 2;
+    }
+
+    room.gameData.canRoll = true;
+    room.gameData.diceValue = null;
+
+    io.to(currentRoomId).emit('ludo-turn-change', {
+      nextTurnPlayerId: room.players[room.currentTurn].id,
+      nextTurnPlayerName: room.players[room.currentTurn].name,
+      color: room.currentTurn === 0 ? 'red' : 'green',
+      bonusTurn
+    });
+  });
+
+  // ================= COMMON CHAT, REACTIONS & REMATCH =================
   socket.on('send-reaction', ({ emoji }) => {
     if (!currentRoomId) return;
     const room = rooms.get(currentRoomId);
@@ -219,45 +494,31 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on('send-chat', ({ message }) => {
-    if (!currentRoomId) return;
-    const room = rooms.get(currentRoomId);
-    if (!room) return;
-    const player = room.players.find(p => p.id === socket.id);
-    const name = player ? player.name : 'Player';
-
-    const cleanMsg = (message || '').trim().slice(0, 100);
-    if (!cleanMsg) return;
-
-    io.to(currentRoomId).emit('receive-chat', {
-      senderId: socket.id,
-      senderName: name,
-      message: cleanMsg,
-      timestamp: Date.now()
-    });
-  });
-
-  // Rematch request
   socket.on('request-rematch', () => {
     if (!currentRoomId || !rooms.has(currentRoomId)) return;
     const room = rooms.get(currentRoomId);
 
-    // Reset room state for rematch setup
-    room.state = 'setup';
-    room.calledNumbers = [];
-    room.winner = null;
-    room.players.forEach(p => {
-      p.ready = false;
-      p.lines = 0;
-      p.board = null;
-    });
+    room.state = 'waiting';
+    room.players.forEach(p => (p.ready = false));
+
+    if (room.gameType === 'bingo') {
+      room.gameData = { calledNumbers: [], lines: {} };
+    } else if (room.gameType === 'tictactoe') {
+      room.gameData = { board: Array(9).fill(null) };
+    } else if (room.gameType === 'ludo') {
+      room.gameData = {
+        diceValue: null,
+        canRoll: true,
+        tokens: { red: [-1, -1, -1, -1], green: [-1, -1, -1, -1] }
+      };
+    }
 
     io.to(currentRoomId).emit('rematch-started', {
-      players: room.players.map(p => ({ id: p.id, name: p.name, ready: false, lines: 0 }))
+      gameType: room.gameType,
+      players: room.players
     });
   });
 
-  // Handle player disconnect
   socket.on('disconnect', () => {
     if (currentRoomId && rooms.has(currentRoomId)) {
       const room = rooms.get(currentRoomId);
@@ -270,11 +531,10 @@ io.on('connection', (socket) => {
         if (room.players.length === 0) {
           rooms.delete(currentRoomId);
         } else {
-          // Promote remaining player to host
           room.players[0].isHost = true;
           room.state = 'waiting';
           io.to(currentRoomId).emit('player-left', {
-            message: `${departing.name} left the game. Waiting for a new player...`,
+            message: `${departing.name} left the game. Waiting for a player...`,
             players: room.players
           });
         }
@@ -284,6 +544,6 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`[Bingo Clash] Server running on port ${PORT}`);
-  console.log(`Ready for Render.com deployment & local play.`);
+  console.log(`[Arcade Hub] Server running on port ${PORT}`);
+  console.log(`Supported Games: Bingo, Tic Tac Toe, Ludo`);
 });
