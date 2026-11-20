@@ -1,10 +1,12 @@
-const CACHE_NAME = 'bingo-clash-v1';
+const CACHE_NAME = 'arcade-clash-v2';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
   './style.css',
   './audio.js',
   './ai.js',
+  './ttt.js',
+  './ludo.js',
   './game.js',
   './manifest.json',
   './icons/icon-192.png',
@@ -38,9 +40,7 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only cache GET requests
   if (event.request.method !== 'GET') return;
-  // Don't cache socket.io or external websocket connections
   if (event.request.url.includes('/socket.io/')) return;
 
   event.respondWith(
@@ -56,7 +56,6 @@ self.addEventListener('fetch', (event) => {
         });
         return networkResponse;
       }).catch(() => {
-        // Fallback for index
         if (event.request.destination === 'document') {
           return caches.match('./index.html');
         }

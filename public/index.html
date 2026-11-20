@@ -3,26 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Bingo Clash - Multiplayer & AI</title>
+  <title>Arcade Clash - Bingo, Tic Tac Toe & Ludo</title>
   
-  <!-- SEO & Social Sharing -->
-  <meta name="description" content="Play classic 5x5 BINGO with your friend online or against the Computer AI offline. Installable on Android & iOS." />
+  <meta name="description" content="Play classic Bingo, Tic Tac Toe, and Ludo with your friends online or against Computer AI offline." />
   <meta name="theme-color" content="#8b5cf6" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="Bingo Clash" />
+  <meta name="apple-mobile-web-app-title" content="Arcade Clash" />
 
-  <!-- PWA Manifest & App Icons -->
   <link rel="manifest" href="./manifest.json" />
   <link rel="apple-touch-icon" href="./icons/icon-192.png" />
   <link rel="icon" type="image/png" href="./icons/icon-192.png" />
 
-  <!-- Google Fonts: Outfit -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
 
-  <!-- Stylesheet -->
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body>
@@ -35,10 +31,10 @@
     <!-- Top Navigation Bar -->
     <header class="navbar">
       <div class="logo-area">
-        <div class="logo-icon">B</div>
+        <div class="logo-icon" id="header-logo-icon">🎮</div>
         <div class="logo-text">
-          <h1>BINGO CLASH</h1>
-          <span>Multiplayer & AI</span>
+          <h1 id="header-app-title">ARCADE CLASH</h1>
+          <span id="header-app-subtitle">Multiplayer & AI</span>
         </div>
       </div>
       <div class="nav-actions">
@@ -47,68 +43,230 @@
         </button>
         <button id="btn-theme-toggle" class="icon-btn" title="Switch Theme">🎨</button>
         <button id="btn-sound-toggle" class="icon-btn" title="Toggle Sound">🔊</button>
-        <button id="btn-mode-toggle" class="icon-btn" title="Change Mode">🎮</button>
+        <button id="btn-mode-toggle" class="icon-btn" title="Change Mode (AI vs Online)">⚔️</button>
       </div>
     </header>
 
-    <!-- B-I-N-G-O Letters Banner -->
-    <section class="bingo-banner">
-      <div class="bingo-letter" id="letter-b">B</div>
-      <div class="bingo-letter" id="letter-i">I</div>
-      <div class="bingo-letter" id="letter-n">N</div>
-      <div class="bingo-letter" id="letter-g">G</div>
-      <div class="bingo-letter" id="letter-o">O</div>
-    </section>
+    <!-- ARCADE GAME SWITCHER TABS -->
+    <nav class="game-tabs-nav">
+      <button class="game-tab-btn active" data-game="bingo">🎱 Bingo</button>
+      <button class="game-tab-btn" data-game="tictactoe">❌ Tic Tac Toe</button>
+      <button class="game-tab-btn" data-game="ludo">🎲 Ludo</button>
+    </nav>
 
-    <!-- Match Status Card -->
-    <section class="status-card">
-      <div class="player-badge">
-        <div class="player-avatar">👤</div>
-        <div class="player-meta">
-          <h3 id="player-name-display">You</h3>
-          <p id="my-lines-display">0 Lines</p>
+    <!-- ================= VIEW 1: BINGO CLASH ================= -->
+    <div id="view-bingo" class="game-view active-view">
+      <!-- B-I-N-G-O Letters Banner -->
+      <section class="bingo-banner">
+        <div class="bingo-letter" id="letter-b">B</div>
+        <div class="bingo-letter" id="letter-i">I</div>
+        <div class="bingo-letter" id="letter-n">N</div>
+        <div class="bingo-letter" id="letter-g">G</div>
+        <div class="bingo-letter" id="letter-o">O</div>
+      </section>
+
+      <!-- Match Status Card -->
+      <section class="status-card">
+        <div class="player-badge">
+          <div class="player-avatar">👤</div>
+          <div class="player-meta">
+            <h3 id="player-name-display">You</h3>
+            <p id="my-lines-display">0 Lines</p>
+          </div>
+        </div>
+
+        <div class="vs-pill">VS</div>
+
+        <div class="player-badge" style="flex-direction: row-reverse; text-align: right;">
+          <div class="player-avatar opponent">🤖</div>
+          <div class="player-meta">
+            <h3 id="opp-name-display">Computer 🤖</h3>
+            <p id="opp-lines-display">0 Lines</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Call Badge -->
+      <div class="call-badge">
+        <span>Last Called:</span>
+        <div class="called-number-pill" id="last-called-number">-</div>
+        <span id="last-caller-name">Waiting to start</span>
+      </div>
+
+      <!-- Active Turn Indicator -->
+      <div class="turn-indicator opp-turn" id="turn-indicator">
+        Arrange your board, then click Ready!
+      </div>
+
+      <!-- 5x5 Bingo Grid -->
+      <main class="grid-container">
+        <div class="bingo-grid" id="bingo-grid">
+          <!-- 25 Cells dynamically rendered -->
+        </div>
+
+        <!-- Board Action Controls -->
+        <div class="board-actions">
+          <button id="btn-randomize" class="action-btn btn-secondary">
+            🎲 Shuffle Board
+          </button>
+          <button id="btn-ready" class="action-btn btn-primary">
+            Ready to Play!
+          </button>
+        </div>
+      </main>
+    </div>
+
+    <!-- ================= VIEW 2: TIC TAC TOE ARENA ================= -->
+    <div id="view-tictactoe" class="game-view">
+      <div class="ttt-score-board">
+        <div class="ttt-score-item">
+          <h4>Player (X)</h4>
+          <p id="ttt-score-x">0</p>
+        </div>
+        <div class="ttt-score-item">
+          <h4>Ties</h4>
+          <p id="ttt-score-tie">0</p>
+        </div>
+        <div class="ttt-score-item">
+          <h4>Opponent (O)</h4>
+          <p id="ttt-score-o">0</p>
         </div>
       </div>
 
-      <div class="vs-pill">VS</div>
+      <div class="turn-indicator your-turn" id="ttt-status">
+        Your Turn (X)! Click a cell.
+      </div>
 
-      <div class="player-badge" style="flex-direction: row-reverse; text-align: right;">
-        <div class="player-avatar opponent">🤖</div>
-        <div class="player-meta">
-          <h3 id="opp-name-display">Computer 🤖</h3>
-          <p id="opp-lines-display">0 Lines</p>
+      <div class="ttt-board-container">
+        <div class="ttt-grid" id="ttt-grid">
+          <div class="ttt-cell" data-index="0"></div>
+          <div class="ttt-cell" data-index="1"></div>
+          <div class="ttt-cell" data-index="2"></div>
+          <div class="ttt-cell" data-index="3"></div>
+          <div class="ttt-cell" data-index="4"></div>
+          <div class="ttt-cell" data-index="5"></div>
+          <div class="ttt-cell" data-index="6"></div>
+          <div class="ttt-cell" data-index="7"></div>
+          <div class="ttt-cell" data-index="8"></div>
         </div>
-      </div>
-    </section>
 
-    <!-- Call Badge -->
-    <div class="call-badge">
-      <span>Last Called:</span>
-      <div class="called-number-pill" id="last-called-number">-</div>
-      <span id="last-caller-name">Waiting to start</span>
-    </div>
-
-    <!-- Active Turn Indicator -->
-    <div class="turn-indicator opp-turn" id="turn-indicator">
-      Arrange your board, then click Ready!
-    </div>
-
-    <!-- 5x5 Bingo Grid -->
-    <main class="grid-container">
-      <div class="bingo-grid" id="bingo-grid">
-        <!-- 25 Cells dynamically rendered -->
-      </div>
-
-      <!-- Board Action Controls -->
-      <div class="board-actions">
-        <button id="btn-randomize" class="action-btn btn-secondary">
-          🎲 Shuffle Board
-        </button>
-        <button id="btn-ready" class="action-btn btn-primary">
-          Ready to Play!
+        <button id="btn-ttt-restart" class="action-btn btn-secondary" style="margin-top: 10px;">
+          🔄 New Match
         </button>
       </div>
-    </main>
+    </div>
+
+    <!-- ================= VIEW 3: LUDO DUEL ================= -->
+    <div id="view-ludo" class="game-view">
+      <div class="turn-indicator your-turn" id="ludo-status">
+        Your Turn (Red)! Roll the Dice 🎲
+      </div>
+
+      <div class="ludo-container">
+        <!-- Interactive Ludo Board Frame -->
+        <div class="ludo-board-frame" id="ludo-board">
+          <!-- Red Base (Bottom-Left) -->
+          <div class="ludo-yard ludo-yard-red">
+            <span class="ludo-yard-title" style="color: #ef4444;">RED BASE</span>
+            <div class="ludo-yard-tokens" id="ludo-red-base-tokens"></div>
+          </div>
+
+          <!-- Green Base (Top-Right) -->
+          <div class="ludo-yard ludo-yard-green">
+            <span class="ludo-yard-title" style="color: #10b981;">GREEN BASE</span>
+            <div class="ludo-yard-tokens" id="ludo-green-base-tokens"></div>
+          </div>
+
+          <!-- Center Crown (Finish) -->
+          <div class="ludo-center" id="ludo-center-crown">👑</div>
+
+          <!-- Dynamic Track Tiles (0-51) -->
+          <div class="ludo-tile tile-safe" id="ludo-tile-0" data-tile-star="true" style="grid-column: 2; grid-row: 9;">⭐</div>
+          <div class="ludo-tile" id="ludo-tile-1" style="grid-column: 3; grid-row: 9;"></div>
+          <div class="ludo-tile" id="ludo-tile-2" style="grid-column: 4; grid-row: 9;"></div>
+          <div class="ludo-tile" id="ludo-tile-3" style="grid-column: 5; grid-row: 9;"></div>
+          <div class="ludo-tile" id="ludo-tile-4" style="grid-column: 6; grid-row: 9;"></div>
+          <div class="ludo-tile" id="ludo-tile-5" style="grid-column: 7; grid-row: 10;"></div>
+          <div class="ludo-tile" id="ludo-tile-6" style="grid-column: 7; grid-row: 11;"></div>
+          <div class="ludo-tile" id="ludo-tile-7" style="grid-column: 7; grid-row: 12;"></div>
+          <div class="ludo-tile tile-safe" id="ludo-tile-8" data-tile-star="true" style="grid-column: 7; grid-row: 13;">⭐</div>
+          <div class="ludo-tile" id="ludo-tile-9" style="grid-column: 7; grid-row: 14;"></div>
+          <div class="ludo-tile" id="ludo-tile-10" style="grid-column: 7; grid-row: 15;"></div>
+          <div class="ludo-tile" id="ludo-tile-11" style="grid-column: 8; grid-row: 15;"></div>
+          <div class="ludo-tile" id="ludo-tile-12" style="grid-column: 9; grid-row: 15;"></div>
+          <div class="ludo-tile tile-safe" id="ludo-tile-13" data-tile-star="true" style="grid-column: 9; grid-row: 14;">⭐</div>
+          <div class="ludo-tile" id="ludo-tile-14" style="grid-column: 9; grid-row: 13;"></div>
+          <div class="ludo-tile" id="ludo-tile-15" style="grid-column: 9; grid-row: 12;"></div>
+          <div class="ludo-tile" id="ludo-tile-16" style="grid-column: 9; grid-row: 11;"></div>
+          <div class="ludo-tile" id="ludo-tile-17" style="grid-column: 9; grid-row: 10;"></div>
+          <div class="ludo-tile" id="ludo-tile-18" style="grid-column: 10; grid-row: 9;"></div>
+          <div class="ludo-tile" id="ludo-tile-19" style="grid-column: 11; grid-row: 9;"></div>
+          <div class="ludo-tile" id="ludo-tile-20" style="grid-column: 12; grid-row: 9;"></div>
+          <div class="ludo-tile tile-safe" id="ludo-tile-21" data-tile-star="true" style="grid-column: 13; grid-row: 9;">⭐</div>
+          <div class="ludo-tile" id="ludo-tile-22" style="grid-column: 14; grid-row: 9;"></div>
+          <div class="ludo-tile" id="ludo-tile-23" style="grid-column: 15; grid-row: 9;"></div>
+          <div class="ludo-tile" id="ludo-tile-24" style="grid-column: 15; grid-row: 8;"></div>
+          <div class="ludo-tile" id="ludo-tile-25" style="grid-column: 15; grid-row: 7;"></div>
+          <div class="ludo-tile tile-safe" id="ludo-tile-26" data-tile-star="true" style="grid-column: 14; grid-row: 7;">⭐</div>
+          <div class="ludo-tile" id="ludo-tile-27" style="grid-column: 13; grid-row: 7;"></div>
+          <div class="ludo-tile" id="ludo-tile-28" style="grid-column: 12; grid-row: 7;"></div>
+          <div class="ludo-tile" id="ludo-tile-29" style="grid-column: 11; grid-row: 7;"></div>
+          <div class="ludo-tile" id="ludo-tile-30" style="grid-column: 10; grid-row: 7;"></div>
+          <div class="ludo-tile" id="ludo-tile-31" style="grid-column: 9; grid-row: 6;"></div>
+          <div class="ludo-tile" id="ludo-tile-32" style="grid-column: 9; grid-row: 5;"></div>
+          <div class="ludo-tile" id="ludo-tile-33" style="grid-column: 9; grid-row: 4;"></div>
+          <div class="ludo-tile tile-safe" id="ludo-tile-34" data-tile-star="true" style="grid-column: 9; grid-row: 3;">⭐</div>
+          <div class="ludo-tile" id="ludo-tile-35" style="grid-column: 9; grid-row: 2;"></div>
+          <div class="ludo-tile" id="ludo-tile-36" style="grid-column: 9; grid-row: 1;"></div>
+          <div class="ludo-tile" id="ludo-tile-37" style="grid-column: 8; grid-row: 1;"></div>
+          <div class="ludo-tile" id="ludo-tile-38" style="grid-column: 7; grid-row: 1;"></div>
+          <div class="ludo-tile tile-safe" id="ludo-tile-39" data-tile-star="true" style="grid-column: 7; grid-row: 2;">⭐</div>
+          <div class="ludo-tile" id="ludo-tile-40" style="grid-column: 7; grid-row: 3;"></div>
+          <div class="ludo-tile" id="ludo-tile-41" style="grid-column: 7; grid-row: 4;"></div>
+          <div class="ludo-tile" id="ludo-tile-42" style="grid-column: 7; grid-row: 5;"></div>
+          <div class="ludo-tile" id="ludo-tile-43" style="grid-column: 7; grid-row: 6;"></div>
+          <div class="ludo-tile" id="ludo-tile-44" style="grid-column: 6; grid-row: 7;"></div>
+          <div class="ludo-tile" id="ludo-tile-45" style="grid-column: 5; grid-row: 7;"></div>
+          <div class="ludo-tile" id="ludo-tile-46" style="grid-column: 4; grid-row: 7;"></div>
+          <div class="ludo-tile tile-safe" id="ludo-tile-47" data-tile-star="true" style="grid-column: 3; grid-row: 7;">⭐</div>
+          <div class="ludo-tile" id="ludo-tile-48" style="grid-column: 2; grid-row: 7;"></div>
+          <div class="ludo-tile" id="ludo-tile-49" style="grid-column: 1; grid-row: 7;"></div>
+          <div class="ludo-tile" id="ludo-tile-50" style="grid-column: 1; grid-row: 8;"></div>
+          <div class="ludo-tile" id="ludo-tile-51" style="grid-column: 1; grid-row: 9;"></div>
+
+          <!-- Red Home Runway (52-56) -->
+          <div class="ludo-tile tile-red-home" id="ludo-red-home-0" style="grid-column: 2; grid-row: 8;"></div>
+          <div class="ludo-tile tile-red-home" id="ludo-red-home-1" style="grid-column: 3; grid-row: 8;"></div>
+          <div class="ludo-tile tile-red-home" id="ludo-red-home-2" style="grid-column: 4; grid-row: 8;"></div>
+          <div class="ludo-tile tile-red-home" id="ludo-red-home-3" style="grid-column: 5; grid-row: 8;"></div>
+          <div class="ludo-tile tile-red-home" id="ludo-red-home-4" style="grid-column: 6; grid-row: 8;"></div>
+
+          <!-- Green Home Runway (52-56) -->
+          <div class="ludo-tile tile-green-home" id="ludo-green-home-0" style="grid-column: 14; grid-row: 8;"></div>
+          <div class="ludo-tile tile-green-home" id="ludo-green-home-1" style="grid-column: 13; grid-row: 8;"></div>
+          <div class="ludo-tile tile-green-home" id="ludo-green-home-2" style="grid-column: 12; grid-row: 8;"></div>
+          <div class="ludo-tile tile-green-home" id="ludo-green-home-3" style="grid-column: 11; grid-row: 8;"></div>
+          <div class="ludo-tile tile-green-home" id="ludo-green-home-4" style="grid-column: 10; grid-row: 8;"></div>
+        </div>
+
+        <!-- Dice Roll Bar -->
+        <div class="ludo-dice-area">
+          <div>
+            <h4 style="font-size: 0.95rem; font-weight: 800;">Dice Action</h4>
+            <p style="font-size: 0.75rem; color: var(--text-muted);">Roll 6 to unlock tokens!</p>
+          </div>
+          <button id="ludo-dice-btn" class="ludo-dice-btn" title="Tap to Roll">
+            <div id="ludo-dice-face" style="display: contents;">
+              <span class="dice-dot dot-center"></span>
+            </div>
+          </button>
+        </div>
+
+        <button id="btn-ludo-restart" class="action-btn btn-secondary">
+          🔄 Restart Ludo Match
+        </button>
+      </div>
+    </div>
 
     <!-- Mobile Quick Reactions Bar -->
     <div class="reactions-bar">
@@ -197,9 +355,9 @@
   <div id="modal-gameover" class="modal-overlay hidden">
     <div class="modal-card victory-card">
       <div class="victory-trophy" id="victory-trophy">🏆</div>
-      <h2 class="victory-title" id="victory-title">BINGO!</h2>
+      <h2 class="victory-title" id="victory-title">VICTORY!</h2>
       <p id="victory-msg" style="color: var(--text-muted); font-size: 0.95rem;">
-        You completed 5 lines!
+        Congratulations!
       </p>
 
       <button id="btn-rematch" class="action-btn btn-primary" style="margin-top: 10px;">
@@ -232,26 +390,17 @@
         <div class="apk-step-item">
           <div class="step-num">2</div>
           <div>
-            <strong style="color: #fff;">1-Click Free Signed APK (PWABuilder):</strong>
-            <p>Deploy your code to Render.com (or GitHub Pages), go to <a href="https://www.pwabuilder.com" target="_blank" style="color: var(--accent-cyan); text-decoration: underline;">pwabuilder.com</a>, enter your live URL, and click <strong>"Package for Android"</strong> to download a ready-to-install <strong>.apk</strong> file!</p>
-          </div>
-        </div>
-
-        <div class="apk-step-item">
-          <div class="step-num">3</div>
-          <div>
-            <strong style="color: #fff;">Native Android Studio (Capacitor):</strong>
-            <p>Use the included Capacitor configuration to run <code>npx cap build android</code> to generate a native APK with Android Studio.</p>
+            <strong style="color: #fff;">1-Click Free Signed APK (PWABuilder / AppsGeyser):</strong>
+            <p>Use <a href="https://www.pwabuilder.com" target="_blank" style="color: var(--accent-cyan); text-decoration: underline;">PWABuilder</a> or <a href="https://appsgeyser.com" target="_blank" style="color: var(--accent-cyan); text-decoration: underline;">AppsGeyser</a>, enter your live Render URL, and download your <strong>.apk</strong> directly!</p>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Socket.io client (loads from server or fallback) -->
+  <!-- Socket.io client -->
   <script src="/socket.io/socket.io.js"></script>
   <script>
-    // Fallback if running directly as file:// or without Node backend
     if (typeof io === 'undefined') {
       const script = document.createElement('script');
       script.src = 'https://cdn.socket.io/4.7.5/socket.io.min.js';
@@ -259,9 +408,11 @@
     }
   </script>
 
-  <!-- Game Logic Scripts -->
+  <!-- Game Scripts -->
   <script src="./audio.js"></script>
   <script src="./ai.js"></script>
+  <script src="./ttt.js"></script>
+  <script src="./ludo.js"></script>
   <script src="./game.js"></script>
 </body>
 </html>

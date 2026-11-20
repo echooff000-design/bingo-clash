@@ -1,7 +1,7 @@
 {
-  "name": "Bingo Clash - Multiplayer & AI",
-  "short_name": "Bingo Clash",
-  "description": "Play classic 5x5 Bingo with your friends online or challenge the Computer AI offline!",
+  "name": "Arcade Clash - Bingo, Tic Tac Toe & Ludo",
+  "short_name": "Arcade Clash",
+  "description": "Multiplayer & AI Games: Play classic Bingo, Tic Tac Toe, and Ludo Duel with friends or against Computer AI!",
   "start_url": "./index.html",
   "display": "standalone",
   "orientation": "portrait",
